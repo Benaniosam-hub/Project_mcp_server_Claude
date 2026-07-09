@@ -1,297 +1,409 @@
-# Project_mcp_server_Claude
+# MCP Server for Claude × SQL Database
 
-An automated CI/CD Flask REST API deployment pipeline to AWS ECS using GitHub Actions.
+A **Model Context Protocol (MCP) server** that bridges Claude AI with SQL databases, enabling natural language queries and database operations through Claude Desktop.
 
-## Overview
+## 🎯 Overview
 
-This repository demonstrates a production-ready deployment workflow for a Flask-based REST API to Amazon Web Services (AWS) using GitHub Actions. It includes:
+This project implements an **MCP server** that acts as a middleware between Claude and PostgreSQL databases. Instead of writing SQL queries manually, users can ask Claude questions in plain English, and the MCP server:
 
-- ✅ REST API for employee/student management built with Flask
-- ✅ PostgreSQL integration (AWS RDS) for persistent storage
-- ✅ Docker containerization for consistent environments
-- ✅ Automated CI/CD pipeline using GitHub Actions
-- ✅ Deployment to AWS ECS with automatic image updates
+1. **Receives natural language requests** from Claude
+2. **Translates them to SQL queries** (Claude handles this)
+3. **Executes queries safely** against PostgreSQL
+4. **Returns results** back to Claude in human-readable format
 
-## Tech Stack
-
-- Language: Python 3.13+ (repo shows Python)
-- Framework: FastMCP / Flask (repo contains an MCP server; adapt as needed)
-- Database: PostgreSQL (AWS RDS)
-- Container: Docker
-- Container Registry: AWS ECR Public
-- Orchestration: AWS ECS
-- CI/CD: GitHub Actions
-- Cloud Region (example): ap-south-2 (Mumbai)
-
-## Repository structure
-
-Project_mcp_server_Claude/
-├── .github/
-│   └── workflows/
-│       └── deploy.yml              # GitHub Actions deployment workflow (if present)
-├── main.py / server.py             # MCP / Flask server entrypoint
-├── Dockerfile                      # Docker image configuration (if present)
-├── pyproject.toml                  # Python project metadata & dependencies
-├── requirements.txt                # Python dependencies (if present)
-├── Output_images/                  # Documentation & screenshots
-└── README.md                       # This file
-
-## API / Tools (example)
-
-Depending on the repository implementation, the server exposes one or more of the following:
-
-- say_hello or GET /hello
-  Response: {"sharlin": "Hello benanio"}
-
-- get_status
-  Response: "Server is running"
-
-- run_query(query: str) / GET /students / POST /students
-  - run_query executes SQL against PostgreSQL with a basic blacklist of destructive statements
-  - GET /students returns a list of students
-  - POST /students adds a student and returns a success message
-
-Adjust these to match the functions/endpoints in the code (main.py / server.py / app.py).
-
-## Architecture (diagram)
-
-Below is an architecture diagram that illustrates how code flows from your GitHub repository through GitHub Actions into AWS ECR and AWS ECS, with the application connecting to RDS (PostgreSQL).
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                          GITHUB REPOSITORY                             │
-│                                                                         │
-│  ┌──────────────┐    ┌──────────────┐    ┌─────────────────┐            │
-│  │   server.py  │    │ Dockerfile   │    │ .github/workflows│            │
-│  │ (MCP/Flask)  │    │ (Python 3.x) │    │   └─ deploy.yml  │            │
-│  └──────────────┘    └──────────────┘    └─────────────────┘            │
-│                                                                         │
-└────────────────────────────────┬────────────────────────────────────────┘
-                                 │
-                        Git Push to main branch
-                                 │
-                                 ▼
-         ┌───────────────────────────────────────────────┐
-         │      GITHUB ACTIONS CI/CD PIPELINE            │
-         │                                               │
-         │  ┌─────────────────────────────────────────┐  │
-         │  │ Step 1: Checkout Code                   │  │
-         │  └─────────────────────────────────────────┘  │
-         │                    │                           │
-         │                    ▼                           │
-         │  ┌─────────────────────────────────────────┐  │
-         │  │ Step 2: Configure AWS Credentials      │  │
-         │  │ (IAM Access Key + Secret Key)          │  │
-         │  └─────────────────────────────────────────┘  │
-         │                    │                           │
-         │                    ▼                           │
-         │  ┌─────────────────────────────────────────┐  │
-         │  │ Step 3: Login to ECR Public             │  │
-         │  │ (AWS ECR Authentication)                │  │
-         │  └─────────────────────────────────────────┘  │
-         │                    │                           │
-         │                    ▼                           │
-         │  ┌─────────────────────────────────────────┐  │
-         │  │ Step 4: Build Docker Image              │  │
-         │  │ docker build -t app:$IMAGE_TAG .       │  │
-         │  └─────────────────────────────────────────┘  │
-         │                    │                           │
-         │                    ▼                           │
-         │  ┌─────────────────────────────────────────┐  │
-         │  │ Step 5: Tag & Push to ECR Public        │  │
-         │  │ public.ecr.aws/<alias>/app:TAG         │  │
-         │  └─────────────────────────────────────────┘  │
-         │                    │                           │
-         └────────────────────┼───────────────────────────┘
-                              │
-                              ▼
-         ┌───────────────────────────────────────────────┐
-         │   AWS ECR PUBLIC (Elastic Container Registry) │
-         │                                               │
-         │  ┌─────────────────────────────────────────┐  │
-         │  │  app:commit-sha                        │  │
-         │  │  (Docker Image Stored)                  │  │
-         │  └─────────────────────────────────────────┘  │
-         │                                               │
-         └────────────────────┬───────────────────────────┘
-                              │
-                              ▼
-         ┌───────────────────────────────────────────────┐
-         │      GITHUB ACTIONS DEPLOYMENT STAGE          │
-         │                                               │
-         │  ┌─────────────────────────────────────────┐  │
-         │  │ Step 6: Download ECS Task Definition    │  │
-         │  │ (Current running task config)           │  │
-         │  └─────────────────────────────────────────┘  │
-         │                    │                           │
-         │                    ▼                           │
-         │  ┌─────────────────────────────────────────┐  │
-         │  │ Step 7: Render New Task Definition      │  │
-         │  │ (Update with new image URI)             │  │
-         │  └─────────────────────────────────────────┘  │
-         │                    │                           │
-         │                    ▼                           │
-         │  ┌─────────────────────────────────────────┐  │
-         │  │ Step 8: Deploy to ECS Service           │  │
-         │  │ (Update app-task-service)               │  │
-         │  └─────────────────────────────────────────┘  │
-         │                                               │
-         └────────────────────┬───────────────────────────┘
-                              │
-                              ▼
-         ┌───────────────────────────────────────────────┐
-         │        AWS ECS CLUSTER (ap-south-2)           │
-         │                                               │
-         │  Cluster: app-cluster                         │
-         │                                               │
-         │  ┌──────────────────────────────────────────┐ │
-         │  │  ECS Service: app-task-service            │ │
-         │  │  ┌────────────────────────────────────┐  │ │
-         │  │  │ Container: app-container            │  │ │
-         │  │  │  ┌────────────────────────────────┐ │  │
-         │  │  │  │ Application (Flask / MCP)      │ │  │
-         │  │  │  │ Port: 5000                      │ │  │
-         │  │  │  └────────────────────────────────┘ │  │
-         │  │  └────────────────────────────────────┘  │ │
-         │  └──────────────────────────────────────────┘ │
-         │             │                                 │
-         └─────────────┼─────────────────────────────────┘
-                       │
-                       ▼ (Network call)
-         ┌─────────────────────────────────────────────────┐
-         │    AWS RDS (Relational Database Service)        │
-         │    PostgreSQL Database (ap-south-2)             │
-         │                                                 │
-         │  ┌──────────────────────────────────────────┐   │
-         │  │ Database: postgres                       │   │
-         │  │ Tables: students                         │   │
-         │  └──────────────────────────────────────────┘   │
-         └─────────────────────────────────────────────────┘
-```
-
-## Getting started (local)
-
-Prerequisites:
-- Python 3.13+
-- Docker
-- (Optional) AWS account and configured resources for deployment
-
-Clone and run locally:
-```bash
-git clone https://github.com/Benaniosam-hub/Project_mcp_server_Claude.git
-cd Project_mcp_server_Claude
-# If requirements.txt exists
-pip install -r requirements.txt
-
-# Set environment variables (example)
-export PG_HOST=your-postgres-host
-export PG_DATABASE=postgres
-export PG_USER=postgres
-export PG_PASSWORD=your-password
-
-# Run the server (adjust the entrypoint file: main.py / server.py / app.py)
-python server.py
-# API available at http://localhost:5000
-```
-
-Test endpoints locally:
-```bash
-curl http://localhost:5000/hello
-curl http://localhost:5000/students
-curl -X POST http://localhost:5000/students -H "Content-Type: application/json" -d '{"name":"Test Student","age":20}'
-```
-
-## Docker (local)
-
-Build and run:
-```bash
-docker build -t app:latest .
-docker run -p 5000:5000 \
-  -e PG_HOST=your-postgres-host \
-  -e PG_DATABASE=postgres \
-  -e PG_USER=postgres \
-  -e PG_PASSWORD=your-password \
-  app:latest
-```
-
-## Deployment with GitHub Actions (automated)
-
-This repository may include a workflow (.github/workflows/deploy.yml) that:
-
-1. Triggers on push to the main branch
-2. Checks out the code
-3. Configures AWS credentials from repository Secrets
-4. Builds and tags a Docker image
-5. Pushes the image to AWS ECR Public
-6. Downloads the current ECS task definition, injects the new image URI, registers the task, and updates the ECS service
-
-Recommended GitHub Secrets to configure:
-- AWS_ACCESS_KEY_ID
-- AWS_SECRET_ACCESS_KEY
-
-Example AWS resources used by the workflow (update names to match your AWS account):
-- ECS Cluster: flask-api-cluster
-- ECS Service: flask-api-task-service
-- Task Definition family: flask-api-task
-- ECR Repository: flask-api (public alias placeholder)
-- Region: ap-south-2
-
-## Environment variables
-
-| Variable    | Default (example)                                           | Description                   |
-|-------------|-------------------------------------------------------------|-------------------------------|
-| PG_HOST     | localhost / your DB host                                     | PostgreSQL host               |
-| PG_DATABASE | postgres                                                    | Database name                 |
-| PG_USER     | postgres                                                    | Database user                 |
-| PG_PASSWORD | (set securely)                                              | Database password             |
-
-Make sure to change defaults before production deployment.
-
-## Security considerations
-
-- Do NOT hardcode secrets in source files. Use environment variables or a secrets manager (AWS Secrets Manager).
-- Use least-privilege IAM policies for GitHub Actions/AWS roles.
-- Place RDS in a private subnet and restrict access via security groups.
-- Enable TLS/HTTPS for external traffic (ALB, API Gateway, or reverse proxy).
-- Rotate credentials and monitor logs (CloudWatch).
-
-## Troubleshooting
-
-- Database connection errors: check DB endpoint, credentials, and security group ingress from ECS.
-- ECS deployment failures: review CloudWatch logs and ECS events; ensure task role and service role permissions are correct.
-- GitHub Actions failures: inspect workflow run logs in Actions tab and validate Secrets.
-
-## Future enhancements
-
-- Add auth (JWT / OAuth)
-- Input validation and improved error handling
-- Database migrations (Alembic)
-- Unit & integration tests
-- Structured logging and monitoring
-- API docs (OpenAPI / Swagger)
-- CI tests before deployment
-- Health checks and auto-scaling
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Open a Pull Request
-
-## License
-
-If you plan to open-source, add a LICENSE file (MIT, Apache-2.0, etc.).
-
-## Author
-
-Benaniosam — https://github.com/Benaniosam-hub
-
-## Support
-
-Open an issue on the GitHub repository: https://github.com/Benaniosam-hub/Project_mcp_server_Claude/issues
+The result? A seamless conversational interface for database interactions with built-in safety guards against destructive operations.
 
 ---
 
-**Last Updated:** 2026-06-27  
-**Version:** 1.1.0
+## 🏗️ Architecture
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                    Claude Desktop (AI)                           │
+│                   (User asks questions)                          │
+└────────────────────────────┬─────────────────────────────────────┘
+                             │
+                    Human Language Query
+                             │
+                             ▼
+┌──────────────────────────────────────────────────────────────────┐
+│           MCP Server (Model Context Protocol)                     │
+│                   (This Repository)                              │
+│                                                                  │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │  Tools Exposed:                                         │    │
+│  │  • say_hello() - Test connection                        │    │
+│  │  • get_status() - Server status                         │    │
+│  │  • run_query(query: str) - Execute SQL queries          │    │
+│  │                                                          │    │
+│  │  Safety Features:                                       │    │
+│  │  ✓ Blocks DROP DATABASE, DROP TABLE, TRUNCATE, etc.    │    │
+│  │  ✓ Distinguishes SELECT (read) vs write operations     │    │
+│  │  ✓ Automatic connection management                     │    │
+│  └─────────────────────────────────────────────────────────┘    │
+└────────────────────────────┬─────────────────────────────────────┘
+                             │
+                    SQL Query (safe & validated)
+                             │
+                             ▼
+┌──────────────────────────────────────────────────────────────────┐
+│              PostgreSQL Database                                 │
+│         (localhost:5432 or any remote instance)                  │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  Database: db1                                           │   │
+│  │  Tables: employees, students, users, etc.               │   │
+│  └──────────────────────────────────────────────────────────┘   │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Python 3.13+
+- PostgreSQL (local or remote)
+- Claude Desktop
+- `uv` (Python package installer) — or `pip`
+
+### Installation
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/Benaniosam-hub/Project_mcp_server_Claude.git
+   cd Project_mcp_server_Claude
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   # Using uv (recommended)
+   uv sync
+   
+   # Or using pip
+   pip install -r requirements.txt
+   ```
+
+3. **Configure database connection in `server.py`:**
+   
+   Update the connection parameters in the `run_query()` function:
+   ```python
+   conn = psycopg2.connect(
+       host="localhost",        # Your DB host
+       database="db1",          # Your database name
+       user="postgres",         # Your DB user
+       password="0000",         # Your DB password
+       port="5432"              # PostgreSQL port
+   )
+   ```
+
+4. **Run the MCP server:**
+   ```bash
+   python server.py
+   ```
+   
+   You should see: `MCP server is running successfully.`
+
+---
+
+## 🔌 Integration with Claude Desktop
+
+### Step 1: Configure Claude Desktop
+
+On Mac, edit `~/.claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "mcp-sql-server": {
+      "command": "python",
+      "args": ["/path/to/Project_mcp_server_Claude/server.py"]
+    }
+  }
+}
+```
+
+On Windows, edit `%APPDATA%\Claude\claude_desktop_config.json` with the equivalent path.
+
+### Step 2: Restart Claude Desktop
+
+Restart Claude Desktop, and the MCP server tools will be available.
+
+### Step 3: Start Querying
+
+Now in Claude, you can ask:
+
+> "Show me all employees in the database"
+> "How many students are enrolled?"
+> "Get the latest 10 records from the users table"
+> "Insert a new employee record with name 'John' and salary 50000"
+
+Claude will:
+1. Understand your intent
+2. Translate it to SQL
+3. Execute via the MCP server
+4. Present results in natural language
+
+---
+
+## 📋 Available Tools
+
+### 1. `say_hello()`
+- **Purpose:** Test if the MCP server is responding
+- **Returns:** `"Hello Benanio, MCP server is working."`
+
+### 2. `get_status()`
+- **Purpose:** Check server status
+- **Returns:** `"MCP server is running successfully."`
+
+### 3. `run_query(query: str)`
+- **Purpose:** Execute SQL queries against PostgreSQL
+- **Input:** SQL query string (SELECT, INSERT, UPDATE, DELETE)
+- **Returns:** 
+  - For SELECT: Rows of data
+  - For INSERT/UPDATE/DELETE: Success message
+  - For blocked operations: Error message
+
+---
+
+## 🔒 Safety Features
+
+The MCP server includes built-in protections:
+
+| Blocked Operations | Reason |
+|---|---|
+| `DROP DATABASE` | Prevents database deletion |
+| `DROP TABLE` | Prevents table deletion |
+| `TRUNCATE` | Prevents data wipeout |
+| `ALTER DATABASE` | Prevents structural changes |
+
+**How it works:**
+- Before executing any query, the server checks if it contains blocked keywords
+- If detected, the query is rejected with a clear message
+- Only read-safe (`SELECT`) and approved write operations are allowed
+
+---
+
+## 📁 Project Structure
+
+```
+Project_mcp_server_Claude/
+├── server.py              # Main MCP server implementation
+├── main.py                # Entry point placeholder
+├── pyproject.toml         # Python project metadata & dependencies
+├── uv.lock                # Locked dependency versions
+├── .gitignore             # Git ignore rules
+├── .python-version        # Python version spec
+├── Output_images/         # Screenshots & documentation
+└── README.md              # This file
+```
+
+---
+
+## 🛠️ How It Works Under the Hood
+
+1. **MCP Protocol:** Uses FastMCP framework to expose tools via the Model Context Protocol
+2. **Tool Registration:** Each function decorated with `@mcp.tool()` becomes a callable tool in Claude
+3. **Query Execution:** 
+   - Claude decides to use `run_query()` based on user intent
+   - Passes the SQL query string
+   - Server validates and executes against PostgreSQL
+4. **Result Handling:**
+   - SELECT queries: Returns data rows
+   - Write operations: Returns confirmation message
+   - Safety checks: Blocks dangerous operations
+
+---
+
+## 📝 Example Conversations
+
+### Example 1: Reading Data
+**User:** "List all employees with salary > 50000"
+
+Claude translates to SQL:
+```sql
+SELECT * FROM employees WHERE salary > 50000;
+```
+
+Server executes and Claude presents:
+```
+Found 5 employees:
+- Alice: $75,000
+- Bob: $60,000
+- Carol: $80,000
+- Dave: $65,000
+- Eve: $55,000
+```
+
+### Example 2: Inserting Data
+**User:** "Add a new student named Alex with email alex@example.com"
+
+Claude translates to SQL:
+```sql
+INSERT INTO students (name, email) VALUES ('Alex', 'alex@example.com');
+```
+
+Server returns: `Query executed successfully.`
+
+Claude confirms: `✓ Student 'Alex' has been added to the database.`
+
+### Example 3: Blocked Operation
+**User:** "Delete the entire employees table"
+
+Claude might attempt:
+```sql
+DROP TABLE employees;
+```
+
+Server blocks it: `DROP TABLE is blocked.`
+
+Claude informs user: `❌ I cannot delete entire tables for safety reasons. Please contact an administrator.`
+
+---
+
+## ⚙️ Configuration
+
+### Database Connection
+Edit `server.py` lines 19-25 to match your PostgreSQL setup:
+
+```python
+conn = psycopg2.connect(
+    host="localhost",       # PostgreSQL host
+    database="db1",         # Database name
+    user="postgres",        # Username
+    password="0000",        # Password
+    port="5432"             # Port
+)
+```
+
+### Adding New Safety Rules
+To add more blocked keywords, update the `blocked` list in `run_query()`:
+
+```python
+blocked = [
+    "DROP DATABASE",
+    "DROP TABLE",
+    "TRUNCATE",
+    "ALTER DATABASE",
+    # Add more here:
+    # "DELETE FROM",  # To prevent deletes
+]
+```
+
+### Expanding Tool Set
+Add new tools by creating functions and decorating them:
+
+```python
+@mcp.tool()
+def get_employee_count() -> int:
+    # Implementation here
+    return count
+```
+
+---
+
+## 🐛 Troubleshooting
+
+| Issue | Solution |
+|---|---|
+| `Connection refused` | Check PostgreSQL is running and host/port are correct |
+| `Authentication failed` | Verify database username and password |
+| `Database db1 does not exist` | Create the database or update the connection string |
+| `Claude can't see the MCP server` | Restart Claude Desktop after config changes |
+| `Query is blocked unexpectedly` | Check if query contains blocked keywords (case-insensitive) |
+
+---
+
+## 🔐 Security Best Practices
+
+1. **Never commit credentials** - Use environment variables instead:
+   ```python
+   import os
+   host = os.getenv("DB_HOST", "localhost")
+   password = os.getenv("DB_PASSWORD")
+   ```
+
+2. **Restrict database user permissions** - Create a read-only user for queries:
+   ```sql
+   CREATE USER readonly WITH PASSWORD 'password';
+   GRANT SELECT ON ALL TABLES IN SCHEMA public TO readonly;
+   ```
+
+3. **Use connection pooling** - For production, use connection pools instead of creating connections per query
+
+4. **Enable SSL** - For remote databases, enable SSL/TLS connections
+
+5. **Audit queries** - Enable PostgreSQL query logging to track operations
+
+---
+
+## 📚 Dependencies
+
+- **fastmcp** (≥3.4.2): Fast implementation of Model Context Protocol
+- **mcp** (≥1.27.2): Model Context Protocol SDK
+- **psycopg2**: PostgreSQL database adapter for Python
+
+---
+
+## 🎓 Learning Resources
+
+- [Model Context Protocol Documentation](https://modelcontextprotocol.io/)
+- [FastMCP GitHub](https://github.com/jlowin/fastmcp)
+- [PostgreSQL Documentation](https://www.postgresql.org/docs/)
+- [Claude AI Documentation](https://claude.ai/docs)
+
+---
+
+## 🚀 Future Enhancements
+
+- [ ] Support for multiple databases (MySQL, SQLite, etc.)
+- [ ] Query result caching for performance
+- [ ] Custom query templates
+- [ ] Automatic schema introspection to help Claude understand table structure
+- [ ] Query logging and analytics
+- [ ] Rate limiting and query quotas
+- [ ] Advanced filtering UI
+- [ ] Export results to CSV/JSON
+
+---
+
+## 📄 License
+
+Open source (specify LICENSE file when ready - MIT, Apache 2.0, etc.)
+
+---
+
+## 👨‍💻 Author
+
+**Benaniosam** — https://github.com/Benaniosam-hub
+
+---
+
+## 💬 Support
+
+Found a bug or have a suggestion? Open an issue:
+https://github.com/Benaniosam-hub/Project_mcp_server_Claude/issues
+
+---
+
+## 🎉 Highlights
+
+✨ **What Makes This Special:**
+- Natural language interface to databases (no SQL knowledge needed)
+- AI-powered query generation via Claude
+- Built-in safety mechanisms prevent accidental data loss
+- Seamless Claude Desktop integration
+- Production-ready code structure
+
+**Perfect for:**
+- Data exploration without writing SQL
+- Prototyping database-backed applications
+- Learning SQL through AI assistance
+- Team members without SQL expertise
+- Quick database queries during analysis tasks
+
+---
+
+**Last Updated:** July 2026  
+**Version:** 1.0.0
