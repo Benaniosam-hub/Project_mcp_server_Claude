@@ -402,19 +402,6 @@ Monitor what queries are being executed on your database.
 
 ---
 
-## 🚀 Future Roadmap
-
-- [ ] Support for MySQL, SQLite, MongoDB
-- [ ] Query result caching
-- [ ] Automatic schema introspection
-- [ ] Advanced query templates
-- [ ] Query history and logging
-- [ ] Rate limiting
-- [ ] Export to CSV/JSON/Excel
-- [ ] Audit trail for compliance
-
----
-
 ## 🤝 Contributing
 
 Found a bug? Have an idea? Open an issue!
